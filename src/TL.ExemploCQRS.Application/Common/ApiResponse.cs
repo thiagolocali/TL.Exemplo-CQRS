@@ -11,34 +11,21 @@ public class ApiResponse<T>
     protected ApiResponse() { }
 
     public static ApiResponse<T> Ok(T data, string message = "Operação realizada com sucesso.")
-    {
-        return new ApiResponse<T>
-        {
-            Success = true,
-            Message = message,
-            Data = data
-        };
-    }
+        => new() { Success = true, Message = message, Data = data };
 
     public static ApiResponse<T> Fail(string message, IEnumerable<string>? errors = null)
-    {
-        return new ApiResponse<T>
-        {
-            Success = false,
-            Message = message,
-            Errors = errors ?? Enumerable.Empty<string>()
-        };
-    }
+        => new() { Success = false, Message = message, Errors = errors ?? Enumerable.Empty<string>() };
 }
 
 /// <summary>
-/// Helper estático para respostas sem dados tipados.
+/// Helper para respostas sem payload (ex: DELETE).
+/// Retorna Data como null no JSON em vez de um objeto vazio {}.
 /// </summary>
 public static class ApiResponse
 {
-    public static ApiResponse<object> Ok(string message = "Operação realizada com sucesso.")
-        => ApiResponse<object>.Ok(new { }, message);
+    public static ApiResponse<object?> Ok(string message = "Operação realizada com sucesso.")
+        => ApiResponse<object?>.Ok(null, message);
 
-    public static ApiResponse<object> Fail(string message, IEnumerable<string>? errors = null)
-        => ApiResponse<object>.Fail(message, errors);
+    public static ApiResponse<object?> Fail(string message, IEnumerable<string>? errors = null)
+        => ApiResponse<object?>.Fail(message, errors);
 }

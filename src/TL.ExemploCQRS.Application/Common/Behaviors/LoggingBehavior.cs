@@ -22,19 +22,30 @@ public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
         var requestName = typeof(TRequest).Name;
         var sw = Stopwatch.StartNew();
 
-        _logger.LogInformation("[CQRS] Iniciando {RequestName} {@Request}", requestName, request);
+        // Não loga o payload completo para evitar vazamento de dados sensíveis
+        // (ex: Password em LoginCommand / RegisterCommand).
+        // Se precisar inspecionar o request em desenvolvimento, adicione
+        // um ISensitiveRequest marker e logue somente quando ele não estiver presente.
+        _logger.LogInformation("[CQRS] Iniciando {RequestName}", requestName);
 
         try
         {
             var response = await next();
             sw.Stop();
-            _logger.LogInformation("[CQRS] Concluído {RequestName} em {ElapsedMs}ms", requestName, sw.ElapsedMilliseconds);
+            _logger.LogInformation(
+                "[CQRS] Concluído {RequestName} em {ElapsedMs}ms",
+                requestName,
+                sw.ElapsedMilliseconds);
             return response;
         }
         catch (Exception ex)
         {
             sw.Stop();
-            _logger.LogError(ex, "[CQRS] Falha em {RequestName} após {ElapsedMs}ms", requestName, sw.ElapsedMilliseconds);
+            _logger.LogError(
+                ex,
+                "[CQRS] Falha em {RequestName} após {ElapsedMs}ms",
+                requestName,
+                sw.ElapsedMilliseconds);
             throw;
         }
     }

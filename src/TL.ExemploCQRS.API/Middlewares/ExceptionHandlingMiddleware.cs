@@ -12,7 +12,7 @@ public class ExceptionHandlingMiddleware
 
     public ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger)
     {
-        _next = next;
+        _next   = next;
         _logger = logger;
     }
 
@@ -30,38 +30,53 @@ public class ExceptionHandlingMiddleware
 
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
-        var (statusCode, response) = exception switch
+        HttpStatusCode statusCode;
+        object response;
+
+        switch (exception)
         {
-            NotFoundException ex => (
-                HttpStatusCode.NotFound,
-                ApiResponse<object>.Fail(ex.Message)),
+            case NotFoundException ex:
+                statusCode = HttpStatusCode.NotFound;
+                response   = ApiResponse<object?>.Fail(ex.Message);
+                _logger.LogWarning("Recurso não encontrado: {Message}", ex.Message);
+                break;
 
-            Domain.Common.ValidationException ex => (
-                HttpStatusCode.BadRequest,
-                ApiResponse<object>.Fail(
-                    "Erros de validação encontrados.",
-                    ex.Errors.SelectMany(e => e.Value))),
+            case Domain.Common.ValidationException ex:
+                statusCode = HttpStatusCode.BadRequest;
+                // Preserva a estrutura { campo: [erros] } para que o cliente
+                // saiba exatamente qual campo corrigir — não achata em lista plana.
+                response = new
+                {
+                    success   = false,
+                    message   = "Erros de validação encontrados.",
+                    errors    = ex.Errors,          // IDictionary<string, string[]>
+                    data      = (object?)null,
+                    timestamp = DateTime.UtcNow
+                };
+                _logger.LogWarning("Falha de validação: {@Errors}", ex.Errors);
+                break;
 
-            DomainException ex => (
-                HttpStatusCode.BadRequest,
-                ApiResponse<object>.Fail(ex.Message)),
+            case DomainException ex:
+                statusCode = HttpStatusCode.BadRequest;
+                response   = ApiResponse<object?>.Fail(ex.Message);
+                _logger.LogWarning("Regra de negócio violada: {Message}", ex.Message);
+                break;
 
-            UnauthorizedException ex => (
-                HttpStatusCode.Unauthorized,
-                ApiResponse<object>.Fail(ex.Message)),
+            case UnauthorizedException ex:
+                statusCode = HttpStatusCode.Unauthorized;
+                response   = ApiResponse<object?>.Fail(ex.Message);
+                _logger.LogWarning("Acesso não autorizado: {Message}", ex.Message);
+                break;
 
-            _ => (
-                HttpStatusCode.InternalServerError,
-                ApiResponse<object>.Fail("Ocorreu um erro interno no servidor."))
-        };
-
-        if (statusCode == HttpStatusCode.InternalServerError)
-            _logger.LogError(exception, "Erro não tratado: {Message}", exception.Message);
-        else
-            _logger.LogWarning(exception, "Erro de negócio: {Message}", exception.Message);
+            default:
+                statusCode = HttpStatusCode.InternalServerError;
+                response   = ApiResponse<object?>.Fail("Ocorreu um erro interno no servidor.");
+                _logger.LogError(exception, "Erro não tratado: {Message}", exception.Message);
+                break;
+        }
 
         context.Response.ContentType = "application/json";
-        context.Response.StatusCode = (int)statusCode;
+        context.Response.StatusCode  = (int)statusCode;
 
         var json = JsonSerializer.Serialize(response, new JsonSerializerOptions
         {

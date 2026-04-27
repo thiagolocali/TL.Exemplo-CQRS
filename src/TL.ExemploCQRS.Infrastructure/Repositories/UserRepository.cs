@@ -9,9 +9,19 @@ public class UserRepository : BaseRepository<User>, IUserRepository
 {
     public UserRepository(AppDbContext context) : base(context) { }
 
-    public async Task<User?> GetByUsernameAsync(string username, CancellationToken cancellationToken = default)
-        => await _dbSet.FirstOrDefaultAsync(u => u.Username == username, cancellationToken);
+    public async Task<User?> GetByUsernameAsync(
+        string username,
+        CancellationToken cancellationToken = default)
+        // O global QueryFilter exclui IsDeleted = true — usuários deletados
+        // não conseguem fazer login nem aparecer em checagens de unicidade.
+        => await _dbSet.FirstOrDefaultAsync(
+            u => u.Username == username,
+            cancellationToken);
 
-    public async Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
-        => await _dbSet.FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
+    public async Task<User?> GetByEmailAsync(
+        string email,
+        CancellationToken cancellationToken = default)
+        => await _dbSet.FirstOrDefaultAsync(
+            u => u.Email == email,
+            cancellationToken);
 }

@@ -22,36 +22,32 @@ public class GetAllProductsQueryHandler : IRequestHandler<GetAllProductsQuery, P
         _repository = repository;
     }
 
-    public async Task<PagedResult<ProductSummaryResponse>> Handle(GetAllProductsQuery request, CancellationToken cancellationToken)
+    public async Task<PagedResult<ProductSummaryResponse>> Handle(
+        GetAllProductsQuery request,
+        CancellationToken cancellationToken)
     {
-        var allProducts = await _repository.GetAllAsync(cancellationToken);
-
-        var query = allProducts.Where(p => !p.IsDeleted);
-
-        if (!string.IsNullOrWhiteSpace(request.Search))
-            query = query.Where(p =>
-                p.Name.Contains(request.Search, StringComparison.OrdinalIgnoreCase) ||
-                p.Description.Contains(request.Search, StringComparison.OrdinalIgnoreCase));
-
-        if (request.IsActive.HasValue)
-            query = query.Where(p => p.IsActive == request.IsActive.Value);
-
-        var totalCount = query.Count();
-        var page = Math.Max(1, request.Page);
+        // Garante valores válidos antes de enviar ao repositório
+        var page     = Math.Max(1, request.Page);
         var pageSize = Math.Clamp(request.PageSize, 1, 100);
 
-        var items = query
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
+        // Filtro e paginação executados no banco via repositório
+        var (products, totalCount) = await _repository.GetPagedAsync(
+            page,
+            pageSize,
+            request.Search,
+            request.IsActive,
+            cancellationToken);
+
+        var items = products
             .Select(ProductMapper.ToSummaryResponse)
             .ToList();
 
         return new PagedResult<ProductSummaryResponse>
         {
-            Items = items,
+            Items      = items,
             TotalCount = totalCount,
-            Page = page,
-            PageSize = pageSize
+            Page       = page,
+            PageSize   = pageSize
         };
     }
 }

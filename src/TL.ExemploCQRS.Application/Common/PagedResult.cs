@@ -6,7 +6,13 @@ public class PagedResult<T>
     public int TotalCount { get; init; }
     public int Page { get; init; }
     public int PageSize { get; init; }
-    public int TotalPages => (int)Math.Ceiling((double)TotalCount / PageSize);
+
+    // PageSize é garantido >= 1 pelo handler antes de chegar aqui,
+    // mas a guard evita divisão por zero caso PagedResult seja construído diretamente.
+    public int TotalPages => PageSize > 0
+        ? (int)Math.Ceiling((double)TotalCount / PageSize)
+        : 0;
+
     public bool HasNextPage => Page < TotalPages;
     public bool HasPreviousPage => Page > 1;
 }

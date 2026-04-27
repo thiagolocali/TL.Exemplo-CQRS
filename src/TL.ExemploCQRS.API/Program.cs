@@ -19,10 +19,22 @@ builder.Services.AddControllers()
     });
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
+// Em desenvolvimento: permissivo para facilitar testes locais.
+// Em produção: restrito às origens configuradas em "AllowedOrigins" no appsettings.
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("Development", policy =>
         policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
+
+    var allowedOrigins = builder.Configuration
+        .GetSection("AllowedOrigins")
+        .Get<string[]>() ?? [];
+
+    options.AddPolicy("Production", policy =>
+        policy.WithOrigins(allowedOrigins)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials());
 });
 
 // ── Swagger / OpenAPI ─────────────────────────────────────────────────────────
@@ -31,20 +43,19 @@ builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "TL.Exemplo-CQRS API",
-        Version = "v1",
+        Title       = "TL.Exemplo-CQRS API",
+        Version     = "v1",
         Description = "API de exemplo utilizando CQRS com MediatR, FluentValidation, EF Core e JWT.",
-        Contact = new OpenApiContact { Name = "TechLead", Email = "contato@tl-exemplo.com" }
+        Contact     = new OpenApiContact { Name = "TechLead", Email = "contato@tl-exemplo.com" }
     });
 
-    // Suporte JWT no Swagger
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Name = "Authorization",
-        Type = SecuritySchemeType.Http,
-        Scheme = "Bearer",
+        Name        = "Authorization",
+        Type        = SecuritySchemeType.Http,
+        Scheme      = "Bearer",
         BearerFormat = "JWT",
-        In = ParameterLocation.Header,
+        In          = ParameterLocation.Header,
         Description = "Informe o token JWT no formato: Bearer {seu_token}"
     });
 
@@ -56,14 +67,13 @@ builder.Services.AddSwaggerGen(options =>
                 Reference = new OpenApiReference
                 {
                     Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
+                    Id   = "Bearer"
                 }
             },
             Array.Empty<string>()
         }
     });
 
-    // XML comments
     var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     if (File.Exists(xmlPath))
@@ -87,13 +97,18 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "TL.Exemplo-CQRS API v1");
-        c.RoutePrefix = string.Empty; // Swagger na raiz
-        c.DocumentTitle = "TL.Exemplo-CQRS API";
+        c.RoutePrefix     = string.Empty;
+        c.DocumentTitle   = "TL.Exemplo-CQRS API";
         c.DisplayRequestDuration();
     });
+
+    app.UseCors("Development");
+}
+else
+{
+    app.UseCors("Production");
 }
 
-app.UseCors("AllowAll");
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -131,7 +146,6 @@ if (app.Environment.IsDevelopment())
             ║    -p 1433:1433 -d mcr.microsoft.com/mssql/server:2022-latest║
             ╚══════════════════════════════════════════════════════════════╝
             """);
-        // Aplicação continua mesmo sem banco — útil para testar endpoints sem BD
     }
 }
 

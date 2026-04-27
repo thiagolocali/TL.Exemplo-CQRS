@@ -16,11 +16,14 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, AuthResponse>
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtService _jwtService;
 
-    public LoginCommandHandler(IUserRepository userRepository, IPasswordHasher passwordHasher, IJwtService jwtService)
+    public LoginCommandHandler(
+        IUserRepository userRepository,
+        IPasswordHasher passwordHasher,
+        IJwtService jwtService)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
-        _jwtService = jwtService;
+        _jwtService     = jwtService;
     }
 
     public async Task<AuthResponse> Handle(LoginCommand request, CancellationToken cancellationToken)
@@ -31,8 +34,9 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, AuthResponse>
         if (!_passwordHasher.Verify(request.Password, user.PasswordHash))
             throw new UnauthorizedException("Usuário ou senha inválidos.");
 
-        var token = _jwtService.GenerateToken(user);
+        // Calcula expiração uma única vez — token e response terão o mesmo instante.
         var expiresAt = _jwtService.GetTokenExpiration();
+        var token     = _jwtService.GenerateToken(user);
 
         return new AuthResponse(token, user.Username, user.Email, user.Role, expiresAt);
     }
@@ -47,31 +51,32 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, AuthRespo
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtService _jwtService;
 
-    public RegisterCommandHandler(IUserRepository userRepository, IPasswordHasher passwordHasher, IJwtService jwtService)
+    public RegisterCommandHandler(
+        IUserRepository userRepository,
+        IPasswordHasher passwordHasher,
+        IJwtService jwtService)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
-        _jwtService = jwtService;
+        _jwtService     = jwtService;
     }
 
     public async Task<AuthResponse> Handle(RegisterCommand request, CancellationToken cancellationToken)
     {
-        var existingUser = await _userRepository.GetByUsernameAsync(request.Username, cancellationToken);
-        if (existingUser != null)
+        if (await _userRepository.GetByUsernameAsync(request.Username, cancellationToken) is not null)
             throw new DomainException($"O nome de usuário '{request.Username}' já está em uso.");
 
-        var existingEmail = await _userRepository.GetByEmailAsync(request.Email, cancellationToken);
-        if (existingEmail != null)
+        if (await _userRepository.GetByEmailAsync(request.Email, cancellationToken) is not null)
             throw new DomainException("Este e-mail já está cadastrado.");
 
         var passwordHash = _passwordHasher.Hash(request.Password);
-        var user = User.Create(request.Username, request.Email, passwordHash);
+        var user         = User.Create(request.Username, request.Email, passwordHash);
 
         await _userRepository.AddAsync(user, cancellationToken);
         await _userRepository.SaveChangesAsync(cancellationToken);
 
-        var token = _jwtService.GenerateToken(user);
         var expiresAt = _jwtService.GetTokenExpiration();
+        var token     = _jwtService.GenerateToken(user);
 
         return new AuthResponse(token, user.Username, user.Email, user.Role, expiresAt);
     }

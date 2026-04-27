@@ -1,11 +1,12 @@
 using FluentValidation;
-using TL.ExemploCQRS.Application.DTOs.Product;
+using TL.ExemploCQRS.Application.Commands.Product.Create;
+using TL.ExemploCQRS.Application.Commands.Product.Update;
 
 namespace TL.ExemploCQRS.Application.Validators.Product;
 
-public class CreateProductRequestValidator : AbstractValidator<CreateProductRequest>
+public class CreateProductCommandValidator : AbstractValidator<CreateProductCommand>
 {
-    public CreateProductRequestValidator()
+    public CreateProductCommandValidator()
     {
         RuleFor(x => x.Name)
             .NotEmpty().WithMessage("O nome do produto é obrigatório.")
@@ -25,10 +26,13 @@ public class CreateProductRequestValidator : AbstractValidator<CreateProductRequ
     }
 }
 
-public class UpdateProductRequestValidator : AbstractValidator<UpdateProductRequest>
+public class UpdateProductCommandValidator : AbstractValidator<UpdateProductCommand>
 {
-    public UpdateProductRequestValidator()
+    public UpdateProductCommandValidator()
     {
+        RuleFor(x => x.Id)
+            .NotEmpty().WithMessage("O ID do produto é obrigatório.");
+
         RuleFor(x => x.Name)
             .NotEmpty().WithMessage("O nome do produto é obrigatório.")
             .MinimumLength(3).WithMessage("O nome deve ter no mínimo 3 caracteres.")

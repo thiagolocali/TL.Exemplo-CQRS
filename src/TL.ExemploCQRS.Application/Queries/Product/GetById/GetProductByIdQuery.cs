@@ -17,13 +17,14 @@ public class GetProductByIdQueryHandler : IRequestHandler<GetProductByIdQuery, P
         _repository = repository;
     }
 
-    public async Task<ProductResponse> Handle(GetProductByIdQuery request, CancellationToken cancellationToken)
+    public async Task<ProductResponse> Handle(
+        GetProductByIdQuery request,
+        CancellationToken cancellationToken)
     {
+        // GetByIdAsync deve retornar null tanto para registros inexistentes
+        // quanto para soft-deleted — responsabilidade centralizada no repositório.
         var product = await _repository.GetByIdAsync(request.Id, cancellationToken)
             ?? throw new NotFoundException(nameof(Domain.Entities.Product), request.Id);
-
-        if (product.IsDeleted)
-            throw new NotFoundException(nameof(Domain.Entities.Product), request.Id);
 
         return ProductMapper.ToResponse(product);
     }
